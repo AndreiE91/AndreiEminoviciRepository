@@ -4,8 +4,8 @@ import posixpath
 import threading, random, shutil, struct, time, math, tarfile
 
 A1_PROG = "a1"
-VERBOSE = False
-VALGRIND = False
+VERBOSE = True
+VALGRIND = True
 TIME_LIMIT = 4
 
 COMPILE_LOG_FILE_NAME = "compile_log.txt"
