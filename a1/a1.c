@@ -220,20 +220,9 @@ int main(int argc, char *argv[]) {
         int result = list_directory(dir_path, recursive, size_greater, name_ends_with);
         if (result == 0) {
             printf("SUCCESS\n");
-        } else if (result == 1) {
+        } else {
             printf("ERROR\n");
-            printf("Invalid directory path.\n");
-        } else if (result == 2) {
-            printf("SUCCESS\n");
-        } else if (result == 3) {
-            printf("ERROR\n");
-            printf("Failed to open directory.\n");
-        } else if (result == 4) {
-            printf("ERROR\n");
-            printf("Failed to read directory.\n");
-        } else if (result == 5) {
-            printf("ERROR\n");
-            printf("Failed to stat element.\n");
+            printf("invalid directory path\n");
         }
         return result;
     } else if (strcmp(argv[1], "parse") == 0) {
