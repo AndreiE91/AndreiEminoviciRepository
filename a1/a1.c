@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 typedef struct parse_block {
     char SECT_NAME[14];
@@ -13,7 +14,98 @@ typedef struct parse_block {
     int SECT_SIZE;
 } parse_block;
 
-int check_sf_format(const char* file_path) {
+int extract_path(const char* file_path, const int sect_nr, const int line_nr) {
+    int fd = open(file_path, O_RDONLY);
+    if (fd == -1) {
+        return 1;  // Error opening file
+    }
+    lseek(fd, 10, SEEK_CUR); // Set file pointer right before no_of_sections
+
+    char no_of_sections;
+    ssize_t bytes_read = read(fd, &no_of_sections, 1);
+    if (bytes_read != 1) {
+        close(fd);
+        return -1;  // Error reading file
+    }
+
+    for(int i = 1; i <= no_of_sections; ++i) {
+        if(sect_nr == i) {
+            lseek(fd, 18, SEEK_CUR); // Skip over irrelevant section info
+
+            // Read the next 4 bytes of the file to check for the SECT_OFFSET field
+            int SECT_OFFSET;
+            bytes_read = read(fd, &SECT_OFFSET, 4);
+            if (bytes_read != 4) {
+            close(fd);
+            return -1;  // Error reading file
+            }
+
+            // Read the next 4 bytes of the file to check for the SECT_SIZE field
+            int SECT_SIZE;
+            bytes_read = read(fd, &SECT_SIZE, 4);
+            if (bytes_read != 4) {
+                close(fd);
+                return -1;  // Error reading file
+            }
+
+            lseek(fd, SECT_OFFSET, SEEK_SET); // Navigate to section's body
+
+            char *section_body = malloc(SECT_SIZE * sizeof(char) + 1); // Allocate memory for section body's contents
+            bytes_read = read(fd, section_body, SECT_SIZE);
+            if (bytes_read != SECT_SIZE) {
+                close(fd);
+                return -1;  // Error reading file
+            }
+            section_body[SECT_SIZE] = '\0'; // Null terminate string
+
+            int line_index = 1;
+            int chars_before_line = -1;
+            for(int j = 0; j < SECT_SIZE; ++j) {
+                if(line_index == line_nr) {
+                    if(j != 0) {
+                        chars_before_line = j + 1; // Account for the two line ending characters
+                    } else {
+                        chars_before_line = 0;
+                    }
+                    break;
+                }
+                if(section_body[j] == '\r') {
+                    if(section_body[j + 1] == '\n') {
+                        ++line_index;
+                    }
+                }
+            }
+
+            if(chars_before_line < 0) { // Invalid line
+                    free(section_body);
+                    close(fd);
+                    return 3;
+            }
+
+            int k = 0;
+            while(section_body[chars_before_line + k] != '\r' && section_body[chars_before_line + k + 1] != '\n') {
+                ++k;
+            }
+
+            char *line_content = malloc(k * sizeof(char) + 1);
+            strncpy(line_content, section_body + chars_before_line, k);
+            line_content[k] = '\0';
+
+            printf("SUCCESS\n");
+            printf("%s", line_content);
+            free(line_content);
+            free(section_body);
+
+            close(fd);
+            return 0;  // Success
+        } else {
+            lseek(fd, 26, SEEK_CUR); // Skip over an entire section
+        }
+    }
+    return 2; // Invalid section
+}
+
+int check_sf_format(const char* file_path, bool display_logs) {
     int fd = open(file_path, O_RDONLY);
     if (fd == -1) {
         return 1;  // Error opening file
@@ -113,12 +205,14 @@ int check_sf_format(const char* file_path) {
         sections[i].SECT_SIZE = SECT_SIZE;
     }
     
-    printf("SUCCESS\n");
-    printf("version=%d\n",version);
-    printf("nr_sections=%d\n",no_of_sections);
-    // Print all data about the sections from the sections array
-    for(int i = 0; i < no_of_sections; ++i) {
-        printf("section%d: %s %d %d\n", i + 1, sections[i].SECT_NAME, sections[i].SECT_TYPE, sections[i].SECT_SIZE);
+    if(display_logs) {
+        printf("SUCCESS\n");
+        printf("version=%d\n",version);
+        printf("nr_sections=%d\n",no_of_sections);
+        // Print all data about the sections from the sections array
+        for(int i = 0; i < no_of_sections; ++i) {
+            printf("section%d: %s %d %d\n", i + 1, sections[i].SECT_NAME, sections[i].SECT_TYPE, sections[i].SECT_SIZE);
+        }
     }
 
     free(sections); // Don't anger Valgrind
@@ -235,9 +329,9 @@ int main(int argc, char *argv[]) {
         }
 
         // Call the check_sf_format function with the parsed options and parameters
-        int result = check_sf_format(file_path);
+        int result = check_sf_format(file_path, true);
         if (result == 0) {
-            return result; //printing of "SUCCESS" moved to function body
+            return result; // printing of "SUCCESS" moved to function body
         } else if (result == 1) {
             printf("ERROR\n");
             printf("Failed to open file.\n");
@@ -253,6 +347,63 @@ int main(int argc, char *argv[]) {
         } else if (result == 5) {
             printf("ERROR\n");
             printf("wrong sect_types\n");
+        } else if (result == -1) {
+            printf("ERROR\n");
+            printf("Failed to read file\n");
+        }
+        return result;
+    } else if (strcmp(argv[1], "extract") == 0) {
+        // Parse command line options and parameters
+        char* file_path = NULL;
+        for (int i = 2; i < argc; ++i) {
+            if (strncmp(argv[i], "path=", 5) == 0) {
+                file_path = &argv[i][5];
+            }
+        }
+        char* sect_nr_string = NULL;
+        for (int i = 3; i < argc; ++i) {
+            if (strncmp(argv[i], "section=", 8) == 0) {
+                sect_nr_string = &argv[i][8];
+            }
+        }
+        int sect_nr = atoi(sect_nr_string);
+        char* line_nr_string = NULL;
+        for (int i = 4; i < argc; ++i) {
+            if (strncmp(argv[i], "line=", 5) == 0) {
+                line_nr_string = &argv[i][5];
+            }
+        }
+        int line_nr = atoi(line_nr_string);
+
+        // Check that file we want to extract from is of valid SF type
+        int validate = check_sf_format(file_path, false);
+        if(validate == 1) {
+            printf("ERROR\n");
+            printf("Failed to open file.\n");
+            return validate;
+        } else if(validate == -1) {
+            printf("ERROR\n");
+            printf("Failed to read file\n");
+            return validate;
+        } else if(validate != 0) {
+            printf("ERROR\n");
+            printf("invalid file\n");
+            return validate;
+        }
+
+        // Call the extract_path function with the parsed options and parameters
+        int result = extract_path(file_path, sect_nr, line_nr);
+        if (result == 0) {
+            return result; // printing of "SUCCESS" moved to function body
+        } else if (result == 2) {
+            printf("ERROR\n");
+            printf("invalid section\n");
+        } else if (result == 3) {
+            printf("ERROR\n");
+            printf("invalid line\n");
+        } else if (result == 1) {
+            printf("ERROR\n");
+            printf("Failed to open file\n");
         } else if (result == -1) {
             printf("ERROR\n");
             printf("Failed to read file\n");
