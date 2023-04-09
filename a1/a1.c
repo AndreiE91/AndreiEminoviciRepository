@@ -14,6 +14,138 @@ typedef struct parse_block {
     int SECT_SIZE;
 } parse_block;
 
+bool validate_findall(const char* file_path) {
+    int fd = open(file_path, O_RDONLY);
+    if (fd == -1) {
+        return false;  // Error opening file
+    }
+
+    lseek(fd, 10, SEEK_CUR); // Advance file pointer over irrelevant fields
+
+    // Read the next byte of the file to check for the NO_OF_SECTIONS field
+    char no_of_sections;
+    ssize_t bytes_read = read(fd, &no_of_sections, 1);
+    if (bytes_read != 1) {
+        close(fd);
+        return false;  // Error reading file
+    }
+    if(no_of_sections < 3 || no_of_sections > 17) {
+        close(fd);
+        return false;  // Invalid no_of_sections field format
+    }
+
+    int valid_sections = 0;
+    for(int i = 1; i <= no_of_sections; ++i) {
+        lseek(fd, 18, SEEK_CUR); // Skip over irrelevant section info
+
+        // Read the next 4 bytes of the file to check for the SECT_OFFSET field
+        int SECT_OFFSET;
+        bytes_read = read(fd, &SECT_OFFSET, 4);
+        if (bytes_read != 4) {
+        close(fd);
+        return false;  // Error reading file
+        }
+
+        // Read the next 4 bytes of the file to check for the SECT_SIZE field
+        int SECT_SIZE;
+        bytes_read = read(fd, &SECT_SIZE, 4);
+        if (bytes_read != 4) {
+            close(fd);
+            return false;  // Error reading file
+        }
+
+        int save_file_pointer = lseek(fd, 0, SEEK_CUR); // Save current file pointer position
+        lseek(fd, SECT_OFFSET, SEEK_SET); // Navigate to section's body
+
+        char *section_body = malloc(SECT_SIZE * sizeof(char) + 1); // Allocate memory for section body's contents
+        bytes_read = read(fd, section_body, SECT_SIZE);
+        if (bytes_read != SECT_SIZE) {
+            close(fd);
+            return false;  // Error reading file
+        }
+        section_body[SECT_SIZE] = '\0'; // Null terminate string
+
+        int line_number = 1;
+
+        int k = 0;
+        while(section_body[k] != '\0') { // Iterate whole body
+            if(section_body[k] == '\r' && section_body[k + 1] == '\n') {
+                ++line_number;
+                ++k;
+            }
+            ++k;
+        }
+        free(section_body);
+        if(line_number == 15) {
+            ++valid_sections;
+        }
+        lseek(fd, save_file_pointer, SEEK_SET); // Return back to header section part
+    }
+
+    close(fd);
+    if(valid_sections >= 3) {
+        return true; // Found at least 3 sections with exactly 15 lines
+    }
+    return false;  // Couldn't find section
+}
+
+int findall(const char* dir_path, bool first_time) {
+    DIR* dir = opendir(dir_path);
+    if (!dir) {
+        return 2;  // Invalid directory path
+    }
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        // Ignore current file, hidden files and parent("." and "..")
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+
+        // Create the full path to the entry
+        char* entry_path = malloc(strlen(dir_path) + strlen(entry->d_name) + 2);
+        sprintf(entry_path, "%s/%s", dir_path, entry->d_name);
+
+        // Get the stat information for the entry
+        struct stat statbuf;
+        int stat_result = stat(entry_path, &statbuf);
+        if (stat_result != 0) {
+            free(entry_path);
+            closedir(dir);
+            return 5;  // Error stating element
+        }
+
+        if(first_time) {
+            printf("SUCCESS\n");
+            first_time = false;
+        }
+
+        // If the entry is a directory, recurse into it
+        if (S_ISDIR(statbuf.st_mode)) {
+            int result = findall(entry_path, first_time);
+            if (result != 0) {
+                free(entry_path);
+                closedir(dir);
+                return result;
+            }
+        } else {
+            if(validate_findall(entry_path)) {
+                printf("%s\n", entry_path);
+            }
+        }
+
+        free(entry_path);
+    }
+
+    if(first_time) { // Cover the case when the while loop never gets past the first if statement
+        printf("SUCCESS\n");
+        first_time = false;
+    }
+    closedir(dir);
+    return 0;  // Success
+}
+
+
 int extract_path(const char* file_path, const int sect_nr, const int line_nr) {
     int fd = open(file_path, O_RDONLY);
     if (fd == -1) {
@@ -223,12 +355,12 @@ int check_sf_format(const char* file_path, bool display_logs) {
 int list_directory(const char* dir_path, int recursive, const char* size_greater, const char* name_ends_with) {
     DIR* dir = opendir(dir_path);
     if (!dir) {
-        return 1;  // Invalid directory path
+        return 2;  // Invalid directory path
     }
 
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL) {
-        // Ignore hidden files and directories
+        // Ignore current file, hidden files and parent("." and "..")
         if (entry->d_name[0] == '.') {
             continue;
         }
@@ -408,6 +540,24 @@ int main(int argc, char *argv[]) {
             printf("ERROR\n");
             printf("Failed to read file\n");
         }
+        return result;
+    } else if (strcmp(argv[1], "findall") == 0) {
+        // Parse command line options and parameters
+        char* dir_path = NULL;
+        for (int i = 2; i < argc; ++i) {
+            if (strncmp(argv[i], "path=", 5) == 0) {
+                dir_path = &argv[i][5];
+            }
+        }
+
+        // Call the findall function with the parsed directory path
+        int result = findall(dir_path, true);
+        if (result == 0) {
+            return result; // printing of "SUCCESS" moved to function body
+        } else {
+            printf("ERROR\n");
+            printf("invalid directory path\n");
+        } 
         return result;
     } else {
         printf("ERROR\n");
