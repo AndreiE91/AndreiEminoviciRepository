@@ -11,10 +11,9 @@
 #include <stdbool.h>
 
 sem_t p7_sem_1, p7_sem_2, p2_sem_1, p2_sem_2, p2_sem_3;
-sem_t *p4_sem_1, *p4_sem_2, *p4_sem_3; // These will be named semaphores for inter-process operations
+sem_t *p4_sem_1, *p4_sem_3; // These will be named semaphores for inter-process operations
 
 #define SEM_NAME1 "/my_semaphore1"
-#define SEM_NAME2 "/my_semaphore2"
 #define SEM_NAME3 "/my_semaphore3"
 
 int no_threads_waiting_p2 = 0;
@@ -25,7 +24,6 @@ void p7_thread(void *arg) {
     int th_id = *((int*)arg);
 
     if(th_id == 2) {
-        //sem_post(p4_sem_2); // Allow T4.5 to terminate first but wait until it terminated before starting
         sem_wait(p4_sem_3);
     }
 
@@ -61,10 +59,6 @@ void p4_thread(void *arg) {
     }
 
     info(BEGIN, 4, th_id);
-    
-    // if(th_id == 5) { // Block T4.5 from terminating until T7.2 starts first
-    //     sem_wait(p4_sem_2);
-    // }
 
     info(END, 4, th_id);
 
@@ -117,16 +111,10 @@ int main(){
 
     // Initialize special named semaphores for inter-process communication
     sem_unlink(SEM_NAME1);
-    sem_unlink(SEM_NAME2);
     sem_unlink(SEM_NAME3);
     p4_sem_1 = sem_open(SEM_NAME1, O_CREAT | O_EXCL, 0666, 0);
     if(p4_sem_1 == SEM_FAILED) {
         perror("Cannot create sem1_p4");
-        exit(-1);
-    }
-    p4_sem_2 = sem_open(SEM_NAME2, O_CREAT | O_EXCL, 0666, 0);
-    if(p4_sem_2 == SEM_FAILED) {
-        perror("Cannot create sem2_p4");
         exit(-1);
     }
     p4_sem_3 = sem_open(SEM_NAME3, O_CREAT | O_EXCL, 0666, 0);
@@ -257,11 +245,9 @@ int main(){
         wait(NULL); // P1 waits for P2
 
         sem_close(p4_sem_1);
-        sem_close(p4_sem_2);
         sem_close(p4_sem_3);
 
         sem_unlink(SEM_NAME1);
-        sem_unlink(SEM_NAME2);
         sem_unlink(SEM_NAME3);
 
         info(END, 1, 0);
