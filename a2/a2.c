@@ -11,11 +11,11 @@
 #include <stdbool.h>
 
 sem_t p7_sem_1, p7_sem_2, p2_sem_1, p2_sem_2, p2_sem_3;
-//sem_t *p4_sem_1, *p4_sem_2, *p4_sem_3; // These will be named semaphores for inter-process operations
+sem_t *p4_sem_1, *p4_sem_2, *p4_sem_3; // These will be named semaphores for inter-process operations
 
-// #define SEM_NAME1 "/my_semaphore1"
-// #define SEM_NAME2 "/my_semaphore2"
-// #define SEM_NAME3 "/my_semaphore3"
+#define SEM_NAME1 "/my_semaphore1"
+#define SEM_NAME2 "/my_semaphore2"
+#define SEM_NAME3 "/my_semaphore3"
 
 int no_threads_waiting_p2 = 0;
 pthread_mutex_t mutex_p2;
@@ -24,10 +24,10 @@ void p7_thread(void *arg) {
             
     int th_id = *((int*)arg);
 
-    // if(th_id == 2) {
-    //     sem_post(p4_sem_2); // Allow T4.5 to terminate first but wait until it terminated before starting
-    //     sem_wait(p4_sem_3);
-    // }
+    if(th_id == 2) {
+        //sem_post(p4_sem_2); // Allow T4.5 to terminate first but wait until it terminated before starting
+        sem_wait(p4_sem_3);
+    }
 
     if(th_id == 3) {
         sem_wait(&p7_sem_1); // Block starting of T3 until T1 started first
@@ -47,18 +47,18 @@ void p7_thread(void *arg) {
         sem_post(&p7_sem_2);
     }
 
-    // if(th_id == 2) {
-    //     sem_post(p4_sem_1); // After T7.2 terminates, only then allow T4.2 to start
-    // }
+    if(th_id == 2) {
+        sem_post(p4_sem_1); // After T7.2 terminates, only then allow T4.2 to start
+    }
 }
 
 void p4_thread(void *arg) {
             
     int th_id = *((int*)arg);
 
-    // if(th_id == 2) { // Block T4.2 from starting until T7.2 terminates first
-    //     sem_wait(p4_sem_1);
-    // }
+    if(th_id == 2) { // Block T4.2 from starting until T7.2 terminates first
+        sem_wait(p4_sem_1);
+    }
 
     info(BEGIN, 4, th_id);
     
@@ -68,9 +68,9 @@ void p4_thread(void *arg) {
 
     info(END, 4, th_id);
 
-    // if(th_id == 5) {
-    //     sem_post(p4_sem_3); // Allow T7.2 to start now that T4.5 terminated first
-    // }
+    if(th_id == 5) {
+        sem_post(p4_sem_3); // Allow T7.2 to start now that T4.5 terminated first
+    }
     
 }
 
@@ -115,6 +115,26 @@ int main(){
 
     info(BEGIN, 1, 0);
 
+    // Initialize special named semaphores for inter-process communication
+    sem_unlink(SEM_NAME1);
+    sem_unlink(SEM_NAME2);
+    sem_unlink(SEM_NAME3);
+    p4_sem_1 = sem_open(SEM_NAME1, O_CREAT | O_EXCL, 0666, 0);
+    if(p4_sem_1 == SEM_FAILED) {
+        perror("Cannot create sem1_p4");
+        exit(-1);
+    }
+    p4_sem_2 = sem_open(SEM_NAME2, O_CREAT | O_EXCL, 0666, 0);
+    if(p4_sem_2 == SEM_FAILED) {
+        perror("Cannot create sem2_p4");
+        exit(-1);
+    }
+    p4_sem_3 = sem_open(SEM_NAME3, O_CREAT | O_EXCL, 0666, 0);
+    if(p4_sem_3 == SEM_FAILED) {
+        perror("Cannot create sem3_p4");
+        exit(-1);
+    }
+
     pid2 = fork();
     if (pid2 == 0) {
         info(BEGIN, 2, 0);
@@ -127,11 +147,6 @@ int main(){
             int th_ids_p7[4];
             sem_init(&p7_sem_1, 0, 0); // Initialize the semaphore with value 0
             sem_init(&p7_sem_2, 0, 0); // Initialize the semaphore with value 0
-
-            // Initialize special named semaphores for inter-process communication
-            // p4_sem_1 = sem_open(SEM_NAME1, O_CREAT | O_EXCL, 0666, 0);
-            // p4_sem_2 = sem_open(SEM_NAME2, O_CREAT | O_EXCL, 0666, 0);
-            // p4_sem_3 = sem_open(SEM_NAME3, O_CREAT | O_EXCL, 0666, 0);
 
             //Create 4 threads for p7
             for(int i = 0; i < 4; ++i) {
@@ -181,10 +196,8 @@ int main(){
 
     }
     else {
-        wait(NULL); // P1 waits for P2
-    }
-
-            pid3 = fork();
+        //wait(NULL); // P1 waits for P2
+        pid3 = fork();
         if (pid3 == 0) {
             info(BEGIN, 3, 0);
 
@@ -227,14 +240,6 @@ int main(){
                     pthread_join(threads_p4[i], NULL);
                 }
 
-                // sem_close(p4_sem_1);
-                // sem_close(p4_sem_2);
-                // sem_close(p4_sem_3);
-
-                // sem_unlink(SEM_NAME1);
-                // sem_unlink(SEM_NAME2);
-                // sem_unlink(SEM_NAME3);
-
                 info(END, 4, 0);
                 return 0;
             }
@@ -249,7 +254,17 @@ int main(){
             wait(NULL); // P1 waits for P3
         }
 
-    info(END, 1, 0);
+        wait(NULL); // P1 waits for P2
 
-    return 0;
+        sem_close(p4_sem_1);
+        sem_close(p4_sem_2);
+        sem_close(p4_sem_3);
+
+        sem_unlink(SEM_NAME1);
+        sem_unlink(SEM_NAME2);
+        sem_unlink(SEM_NAME3);
+
+        info(END, 1, 0);
+        return 0;
+    }
 }
