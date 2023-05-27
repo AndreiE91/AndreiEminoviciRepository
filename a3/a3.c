@@ -54,7 +54,7 @@ int main() {
 
     char* file_name; // Memory mapped file name
     int mm_fd = -1; // Memory mapped file descriptor
-    void* mapped_ptr = NULL; // Start address of the mapped memory
+    char* mapped_ptr = NULL; // Start address of the mapped memory
     struct stat file_stat; // Structure which holds information about the file which will be memory mapped. I am interested in its size.
 
     char loop = 1; // Allocate 1 byte for a loop flag
@@ -125,7 +125,7 @@ int main() {
             // Validate if there is enough space to write the value bytes at the offset
             if(offset < 3732669 - sizeof(unsigned int)) {
                 // Modify the value at the specified offset
-                *(int*)((char*)shm_ptr + offset) = value;
+                *(int*)(shm_ptr + offset) = value;
                 writep(fd_write, response, strlen(response));
             } else {
                 writep(fd_write, error_response, strlen(error_response));
@@ -135,7 +135,7 @@ int main() {
             char* error_response = "MAP_FILE!ERROR!";
             char* response = "MAP_FILE!SUCCESS!";
 
-            file_name = ((char*)buffer + strlen("MAP_FILE!")); // Read file name from the buffer at the offset of the number of bytes the request message occupies
+            file_name = (buffer + strlen("MAP_FILE!")); // Read file name from the buffer at the offset of the number of bytes the request message occupies
             file_name[strlen(file_name) - 1] = '\0'; // Remove ! character from end of file name received
             //printf("File name: %s\n", file_name);
             // Open the file
@@ -165,25 +165,22 @@ int main() {
         } else if(strncmp(buffer, "READ_FROM_FILE_OFFSET!", strlen("READ_FROM_FILE_OFFSET!")) == 0) {
             unsigned int offset = *(unsigned int*)(buffer + strlen("READ_FROM_FILE_OFFSET!"));
             unsigned int no_of_bytes = *(unsigned int*)(buffer + strlen("READ_FROM_FILE_OFFSET!") + sizeof(unsigned int));
-            //printf("Offset: %d Value: %d\n", offset, value);
+            printf("Offset: %d Num bytes: %d Size: %ld\n", offset, no_of_bytes, file_stat.st_size);
             char* error_response = "READ_FROM_FILE_OFFSET!ERROR!";
             char* response = "READ_FROM_FILE_OFFSET!SUCCESS!";
             
             
             // Apply principle of inversion to handle the error case first
-            if(mapped_ptr == NULL || mm_fd == -1 || offset + no_of_bytes < file_stat.st_size) {
+            if(mapped_ptr == NULL || mm_fd == -1 || offset + no_of_bytes > file_stat.st_size) {
                 writep(fd_write, error_response, strlen(error_response));
             } else {
-                char data[no_of_bytes];
 
+                printf("Mapped ptr: %p\n", mapped_ptr);
+                printf("Mapped ptr data: %s\n", (char*)(mapped_ptr));
                 // Read number of bytes from offset in the shared memory and copy them at the beginning of the shared memory region
                 for(int i = 0; i < no_of_bytes; ++i) {
-                    printf("Byte[%d] in offset = %d\n", i, *((char*)(mapped_ptr + offset + i)));
-                    data[i] = *((char*)(mapped_ptr + offset + i));
+                    mapped_ptr[i] = mapped_ptr[offset + i];
                 }
-
-                // Copy data into the shared memory region
-                memcpy(mapped_ptr, data, no_of_bytes);
 
                 // Announce the success case
                 writep(fd_write, response, strlen(response));
