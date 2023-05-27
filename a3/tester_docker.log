@@ -1,0 +1,90 @@
+SUCCESS
+close: Bad file descriptor
+SUCCESS
+SUCCESS
+Offset: 12639 Value: 14350573
+Offset: 3732667 Value: 305419896
+SUCCESS
+SUCCESS
+SUCCESS
+SUCCESS
+SUCCESS
+[1;35mTesting ping...[0m
+[TESTER] received string 'START'
+[TESTER] sending string 'VARIANT'
+[TESTER] received string 'VARIANT'
+[TESTER] received string 'VALUE'
+[TESTER] received number 59950
+[TESTER] sending string 'EXIT'
+Test score: 10 / 10
+[1;35mTesting shm1...[0m
+[TESTER] received string 'START'
+[TESTER] sending string 'CREATE_SHM'
+[TESTER] sending number 3732669
+[TESTER] received string 'CREATE_SHM'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'EXIT'
+Test score: 10 / 10
+[1;35mTesting shm_write...[0m
+[TESTER] received string 'START'
+[TESTER] sending string 'CREATE_SHM'
+[TESTER] sending number 3732669
+[TESTER] received string 'CREATE_SHM'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'WRITE_TO_SHM'
+[TESTER] sending number 12639
+[TESTER] sending number 14350573
+[TESTER] received string 'WRITE_TO_SHM'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'WRITE_TO_SHM'
+[TESTER] sending number 3732667
+[TESTER] sending number 305419896
+[TESTER] received string 'WRITE_TO_SHM'
+[TESTER] received string 'ERROR'
+[TESTER] sending string 'EXIT'
+Test score: 10 / 10
+[1;35mTesting map_inexistent...[0m
+[TESTER] received string 'START'
+[TESTER] sending string 'MAP_FILE'
+[TESTER] sending string 'test_root/RyNI2gWnRbtH.OLs'
+	[1;31mTIME LIMIT EXCEEDED[0m
+Test score: 0 / 5
+[1;35mTesting map1...[0m
+[TESTER] received string 'START'
+[TESTER] sending string 'MAP_FILE'
+[TESTER] sending string 'test_root/KYphH08exb.x4p'
+	[1;31mTIME LIMIT EXCEEDED[0m
+Test score: 0 / 5
+[1;35mTesting read_offset...[0m
+[TESTER] received string 'START'
+[TESTER] sending string 'CREATE_SHM'
+[TESTER] sending number 3732669
+[TESTER] received string 'CREATE_SHM'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'MAP_FILE'
+[TESTER] sending string 'test_root/KYphH08exb.x4p'
+	[1;31mTIME LIMIT EXCEEDED[0m
+Test score: 0 / 10
+[1;35mTesting read_section...[0m
+[TESTER] received string 'START'
+[TESTER] sending string 'CREATE_SHM'
+[TESTER] sending number 3732669
+[TESTER] received string 'CREATE_SHM'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'MAP_FILE'
+[TESTER] sending string 'test_root/PQK8Khh9aN.IlK'
+	[1;31mTIME LIMIT EXCEEDED[0m
+Test score: 0 / 10
+[1;35mTesting read_logical...[0m
+[TESTER] received string 'START'
+[TESTER] sending string 'CREATE_SHM'
+[TESTER] sending number 3732669
+[TESTER] received string 'CREATE_SHM'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'MAP_FILE'
+[TESTER] sending string 'test_root/oucITzoZrr.HHS'
+	[1;31mTIME LIMIT EXCEEDED[0m
+Test score: 0 / 10
+
+Total score: 30 / 70
+Assignment grade: 42.86 / 100
