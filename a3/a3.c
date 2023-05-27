@@ -50,7 +50,7 @@ int main() {
     int shm_fd; // Shared memory file descriptor
     unsigned int shm_size; // Shared memory size
     const char* shm_name; // Shared memory object name
-    void* shm_ptr; // Shared memory address
+    char* shm_ptr = NULL; // Shared memory address
 
     char* file_name; // Memory mapped file name
     int mm_fd = -1; // Memory mapped file descriptor
@@ -179,7 +179,7 @@ int main() {
                 printf("Mapped ptr data: %s\n", (char*)(mapped_ptr));
                 // Read number of bytes from offset in the shared memory and copy them at the beginning of the shared memory region
                 for(int i = 0; i < no_of_bytes; ++i) {
-                    mapped_ptr[i] = mapped_ptr[offset + i];
+                    shm_ptr[i] = mapped_ptr[offset + i];
                 }
 
                 // Announce the success case
