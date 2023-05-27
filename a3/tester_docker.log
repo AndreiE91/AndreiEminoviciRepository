@@ -1,10 +1,8 @@
 SUCCESS
-close: Bad file descriptor
 SUCCESS
 SUCCESS
-Offset: 12639 Value: 14350573
-Offset: 3732667 Value: 305419896
 SUCCESS
+open: No such file or directory
 SUCCESS
 SUCCESS
 SUCCESS
@@ -47,14 +45,18 @@ Test score: 10 / 10
 [TESTER] received string 'START'
 [TESTER] sending string 'MAP_FILE'
 [TESTER] sending string 'test_root/RyNI2gWnRbtH.OLs'
-	[1;31mTIME LIMIT EXCEEDED[0m
-Test score: 0 / 5
+[TESTER] received string 'MAP_FILE'
+[TESTER] received string 'ERROR'
+[TESTER] sending string 'EXIT'
+Test score: 5 / 5
 [1;35mTesting map1...[0m
 [TESTER] received string 'START'
 [TESTER] sending string 'MAP_FILE'
 [TESTER] sending string 'test_root/KYphH08exb.x4p'
-	[1;31mTIME LIMIT EXCEEDED[0m
-Test score: 0 / 5
+[TESTER] received string 'MAP_FILE'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'EXIT'
+Test score: 5 / 5
 [1;35mTesting read_offset...[0m
 [TESTER] received string 'START'
 [TESTER] sending string 'CREATE_SHM'
@@ -63,8 +65,13 @@ Test score: 0 / 5
 [TESTER] received string 'SUCCESS'
 [TESTER] sending string 'MAP_FILE'
 [TESTER] sending string 'test_root/KYphH08exb.x4p'
-	[1;31mTIME LIMIT EXCEEDED[0m
-Test score: 0 / 10
+[TESTER] received string 'MAP_FILE'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'READ_FROM_FILE_OFFSET'
+[TESTER] sending number 63016
+[TESTER] sending number 50
+[TESTER] sending string 'EXIT'
+Test score: 3 / 10
 [1;35mTesting read_section...[0m
 [TESTER] received string 'START'
 [TESTER] sending string 'CREATE_SHM'
@@ -73,6 +80,12 @@ Test score: 0 / 10
 [TESTER] received string 'SUCCESS'
 [TESTER] sending string 'MAP_FILE'
 [TESTER] sending string 'test_root/PQK8Khh9aN.IlK'
+[TESTER] received string 'MAP_FILE'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'READ_FROM_FILE_SECTION'
+[TESTER] sending number 17
+[TESTER] sending number 0
+[TESTER] sending number 100
 	[1;31mTIME LIMIT EXCEEDED[0m
 Test score: 0 / 10
 [1;35mTesting read_logical...[0m
@@ -83,8 +96,13 @@ Test score: 0 / 10
 [TESTER] received string 'SUCCESS'
 [TESTER] sending string 'MAP_FILE'
 [TESTER] sending string 'test_root/oucITzoZrr.HHS'
+[TESTER] received string 'MAP_FILE'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'READ_FROM_LOGICAL_SPACE_OFFSET'
+[TESTER] sending number 706
+[TESTER] sending number 431
 	[1;31mTIME LIMIT EXCEEDED[0m
 Test score: 0 / 10
 
-Total score: 30 / 70
-Assignment grade: 42.86 / 100
+Total score: 43 / 70
+Assignment grade: 61.43 / 100

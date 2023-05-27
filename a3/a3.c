@@ -53,7 +53,7 @@ int main() {
     void* shm_ptr; // Shared memory address
 
     char* file_name; // Memory mapped file name
-    int mm_fd; // Memory mapped file descriptor
+    int mm_fd = -1; // Memory mapped file descriptor
     void* mapped_ptr = NULL; // Start address of the mapped memory
     struct stat file_stat; // Structure which holds information about the file which will be memory mapped. I am interested in its size.
 
@@ -94,14 +94,14 @@ int main() {
             if (shm_fd == -1) {
                 perror("shm_open");
                 writep(fd_write, error_response, strlen(error_response));
-                exit(EXIT_FAILURE);
+                continue;
             }
 
             // Adjust the size of the shared memory object
             if (ftruncate(shm_fd, shm_size) == -1) {
                 perror("ftruncate");
                 writep(fd_write, error_response, strlen(error_response));
-                exit(EXIT_FAILURE);
+                continue;
             }
 
             // Map the shared memory object into the virtual address space
@@ -110,7 +110,7 @@ int main() {
             if (shm_ptr == MAP_FAILED) {
                 perror("mmap");
                 writep(fd_write, error_response, strlen(error_response));
-                exit(EXIT_FAILURE);
+                continue;
             }
 
             char* response = "CREATE_SHM!SUCCESS!";
@@ -137,20 +137,20 @@ int main() {
 
             file_name = ((char*)buffer + strlen("MAP_FILE!")); // Read file name from the buffer at the offset of the number of bytes the request message occupies
             file_name[strlen(file_name) - 1] = '\0'; // Remove ! character from end of file name received
-            printf("File name: %s\n", file_name);
+            //printf("File name: %s\n", file_name);
             // Open the file
             mm_fd = open(file_name, O_RDONLY);
             if (mm_fd == -1) {
                 perror("open");
                 writep(fd_write, error_response, strlen(error_response));
-                exit(EXIT_FAILURE);
+                continue;
             }
 
             // Get the file size
             if (fstat(mm_fd, &file_stat) == -1) {
                 perror("fstat");
                 writep(fd_write, error_response, strlen(error_response));
-                exit(EXIT_FAILURE);
+                continue;
             }
 
             // Map the file into memory
@@ -158,7 +158,7 @@ int main() {
             if (mapped_ptr == MAP_FAILED) {
                 perror("mmap");
                 writep(fd_write, error_response, strlen(error_response));
-                exit(EXIT_FAILURE);
+                continue;
             }
             writep(fd_write, response, strlen(response));
 
@@ -169,11 +169,25 @@ int main() {
             char* error_response = "READ_FROM_FILE_OFFSET!ERROR!";
             char* response = "READ_FROM_FILE_OFFSET!SUCCESS!";
             
-            if(mapped_ptr == NULL || ) {
-
-            }
-                writep(fd_write, response, strlen(response));
+            
+            // Apply principle of inversion to handle the error case first
+            if(mapped_ptr == NULL || mm_fd == -1 || offset + no_of_bytes < file_stat.st_size) {
                 writep(fd_write, error_response, strlen(error_response));
+            } else {
+                char data[no_of_bytes];
+
+                // Read number of bytes from offset in the shared memory and copy them at the beginning of the shared memory region
+                for(int i = 0; i < no_of_bytes; ++i) {
+                    printf("Byte[%d] in offset = %d\n", i, *((char*)(mapped_ptr + offset + i)));
+                    data[i] = *((char*)(mapped_ptr + offset + i));
+                }
+
+                // Copy data into the shared memory region
+                memcpy(mapped_ptr, data, no_of_bytes);
+
+                // Announce the success case
+                writep(fd_write, response, strlen(response));
+            }
 
         } else if(strncmp(buffer, "EXIT!", bytesRead) == 0) {
             loop = 0;
