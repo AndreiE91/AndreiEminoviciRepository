@@ -190,7 +190,7 @@ int main() {
             unsigned int section_no = *(unsigned int*)(buffer + strlen("READ_FROM_FILE_SECTION!"));
             unsigned int offset = *(unsigned int*)(buffer + strlen("READ_FROM_FILE_SECTION!") + sizeof(unsigned int));
             unsigned int no_of_bytes = *(unsigned int*)(buffer + strlen("READ_FROM_FILE_SECTION!") + 2 * sizeof(unsigned int));
-            printf("Section_no: %d Offset: %d Num bytes: %d  Size: %ld\n", section_no, offset, no_of_bytes, file_stat.st_size);
+            //printf("Section_no: %d Offset: %d Num bytes: %d  Size: %ld\n", section_no, offset, no_of_bytes, file_stat.st_size);
             char* error_response = "READ_FROM_FILE_SECTION!ERROR!";
             char* response = "READ_FROM_FILE_SECTION!SUCCESS!";
 
@@ -241,7 +241,7 @@ int main() {
                 section_names[i][14] = '\0';
                 memcpy(&sect_types[i], mapped_ptr + 11 + i * 26 + 14, 4);
                 if(sect_types[i] != 48 && sect_types[i] != 82 && sect_types[i] != 81) {
-                    printf("File header error: Invalid sect_types field\n");
+                    printf("Section header error: Invalid sect_types field\n");
                     writep(fd_write, error_response, strlen(error_response));
                     broken = 1;
                     break;
@@ -253,18 +253,22 @@ int main() {
                 continue;
             }
 
-            if(mapped_ptr == NULL || mm_fd == -1 || sect_offsets[section_no - 1] + offset + no_of_bytes > file_stat.st_size || section_no < 1 || section_no > no_of_sections) {
+            // Validate memory location
+            if(mapped_ptr == NULL || mm_fd == -1 || sect_offsets[section_no - 1] + offset + no_of_bytes > file_stat.st_size || section_no < 1 || section_no > no_of_sections
+                || offset + no_of_bytes > sect_sizes[section_no - 1]) {
+                printf("Invalid memory read attempt\n");
                 writep(fd_write, error_response, strlen(error_response));
+                continue;
             }
 
             // Debug print file's header
-            printf("MAGIC: %s  HEADER_SIZE: %d  VERSION: %d  NO_OF_SECTIONS: %d\n", magic, header_size, version, no_of_sections);
-            for(int i = 0; i < no_of_sections; ++i) {
-                printf("section_names[%d] = %s\n", i, section_names[i]);
-                printf("sect_types[%d] = %d\n", i, sect_types[i]);
-                printf("sect_offsets[%d] = %d\n", i, sect_offsets[i]);
-                printf("sect_sizes[%d] = %d\n\n", i, sect_sizes[i]);
-            }
+            //printf("MAGIC: %s  HEADER_SIZE: %d  VERSION: %d  NO_OF_SECTIONS: %d\n", magic, header_size, version, no_of_sections);
+            // for(int i = 0; i < no_of_sections; ++i) {
+            //     printf("section_names[%d] = %s\n", i, section_names[i]);
+            //     printf("sect_types[%d] = %d\n", i, sect_types[i]);
+            //     printf("sect_offsets[%d] = %d\n", i, sect_offsets[i]);
+            //     printf("sect_sizes[%d] = %d\n\n", i, sect_sizes[i]);
+            // }
 
             //Read and copy read bytes into asked location            
             for(int i = 0; i < no_of_bytes; ++i) {
@@ -273,6 +277,103 @@ int main() {
 
             // Announce the success case
             writep(fd_write, response, strlen(response));
+        } else if(strncmp(buffer, "READ_FROM_LOGICAL_SPACE_OFFSET!", strlen("READ_FROM_LOGICAL_SPACE_OFFSET!")) == 0) {
+            unsigned int logical_offset = *(unsigned int*)(buffer + strlen("READ_FROM_LOGICAL_SPACE_OFFSET!"));
+            unsigned int no_of_bytes = *(unsigned int*)(buffer + strlen("READ_FROM_LOGICAL_SPACE_OFFSET!") + sizeof(unsigned int));
+            //printf("Logical offset: %d Num bytes: %d Size: %ld\n", logical_offset, no_of_bytes, file_stat.st_size);
+            char* error_response = "READ_FROM_LOGICAL_SPACE_OFFSET!ERROR!";
+            char* response = "READ_FROM_LOGICAL_SPACE_OFFSET!SUCCESS!";
+            
+            
+            // Fetch file data from its header and check its validity
+            char magic[5]; memcpy(magic, mapped_ptr, 4);
+            magic[4] = '\0'; // Null terminate string
+            if(strcmp(magic, "hONA") != 0) {
+                printf("File header error: Invalid magic field\n");
+                writep(fd_write, error_response, strlen(error_response));
+                continue;
+            }
+            short header_size = 0; memcpy(&header_size, mapped_ptr + 4, 2);
+            int version = 0; memcpy(&version, mapped_ptr + 6, 4);
+            if(version < 99 || version > 156) {
+                printf("File header error: Invalid version field\n");
+                writep(fd_write, error_response, strlen(error_response));
+                continue;
+            }
+            char no_of_sections = 0; memcpy(&no_of_sections, mapped_ptr + 10, 1);
+            if(no_of_sections < 2 || no_of_sections > 17) {
+                printf("File header error: Invalid no_of_sections field\n");
+                writep(fd_write, error_response, strlen(error_response));
+                continue;
+            }
+            char section_names[no_of_sections][15];
+            int sect_types[no_of_sections];
+            int sect_offsets[no_of_sections];
+            int sect_sizes[no_of_sections];
+            char broken = 0; // Flag needed for double loop break
+            for(int i = 0; i < no_of_sections; ++i) {
+                memcpy(&section_names[i], mapped_ptr + 11 + i * 26, 14);
+                section_names[i][14] = '\0';
+                memcpy(&sect_types[i], mapped_ptr + 11 + i * 26 + 14, 4);
+                if(sect_types[i] != 48 && sect_types[i] != 82 && sect_types[i] != 81) {
+                    printf("Section header error: Invalid sect_types field\n");
+                    writep(fd_write, error_response, strlen(error_response));
+                    broken = 1;
+                    break;
+                }
+                memcpy(&sect_offsets[i], mapped_ptr + 11 + i * 26 + 18, 4);
+                memcpy(&sect_sizes[i], mapped_ptr + 11 + i * 26 + 22, 4);
+            }
+            if(broken) {
+                continue;
+            }
+
+            // Calculate final offset from the provided logical offset
+            //int offset_final;
+
+            // Compute size of all the sections
+            int total_size = 0;
+            for(int i = 0; i < no_of_sections; ++i) {
+                total_size += sect_sizes[i] - (sect_sizes[i] % 1024) + 1024;
+            }
+
+            // Validate memory location
+            if(mapped_ptr == NULL || mm_fd == -1 || logical_offset + no_of_bytes > total_size) {
+                printf("Invalid memory read attempt\n");
+                writep(fd_write, error_response, strlen(error_response));
+                continue;
+            }
+
+            // Allocate space for loading all of the section's contents into the process's memory
+            char sections[total_size];
+
+            // Copy all section content into the allocated memory
+            int sect_pointer = 0; // Pointer used to keep track of current position when copying the section content
+            for(int i = 0; i < no_of_sections; ++i) {
+                for(int j = 0; j < sect_sizes[i]; ++j) {
+                    sections[sect_pointer] = mapped_ptr[sect_offsets[i] + j];
+                    ++sect_pointer;
+                }
+                sect_pointer = (sect_pointer / 1024) * 1024 + 1024;
+            }
+
+            // Debug print file's header
+            //printf("MAGIC: %s  HEADER_SIZE: %d  VERSION: %d  NO_OF_SECTIONS: %d\n", magic, header_size, version, no_of_sections);
+            // for(int i = 0; i < no_of_sections; ++i) {
+            //     printf("section_names[%d] = %s\n", i, section_names[i]);
+            //     printf("sect_types[%d] = %d\n", i, sect_types[i]);
+            //     printf("sect_offsets[%d] = %d\n", i, sect_offsets[i]);
+            //     printf("sect_sizes[%d] = %d\n\n", i, sect_sizes[i]);
+            // }
+
+            //Read and copy read bytes into asked location            
+            for(int i = 0; i < no_of_bytes; ++i) {
+                shm_ptr[i] = sections[logical_offset + i];
+            }
+
+            // Announce the success case
+            writep(fd_write, response, strlen(response));
+
         } else if(strncmp(buffer, "EXIT!", bytesRead) == 0) {
             loop = 0;
             break;
